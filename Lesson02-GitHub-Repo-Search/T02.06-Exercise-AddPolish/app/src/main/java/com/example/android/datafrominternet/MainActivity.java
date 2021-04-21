@@ -2,6 +2,9 @@ package com.example.android.datafrominternet;
 
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -14,6 +17,9 @@ import com.example.android.datafrominternet.utilities.NetworkUtils;
 
 import java.io.IOException;
 import java.net.URL;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -29,10 +35,13 @@ public class MainActivity extends AppCompatActivity {
     // COMPLETED (24) Create a ProgressBar variable to store a reference to the ProgressBar
     private ProgressBar mLoadingIndicator;
 
+    String mGithubSearchResult;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
 
         mSearchBoxEditText = (EditText) findViewById(R.id.et_search_box);
 
@@ -44,19 +53,21 @@ public class MainActivity extends AppCompatActivity {
 
         // COMPLETED (25) Get a reference to the ProgressBar using findViewById
         mLoadingIndicator = (ProgressBar) findViewById(R.id.pb_loading_indicator);
+
+
     }
 
     /**
      * This method retrieves the search text from the EditText, constructs the
      * URL (using {@link NetworkUtils}) for the github repository you'd like to find, displays
      * that URL in a TextView, and finally fires off an AsyncTask to perform the GET request using
-     * our {@link GithubQueryTask}
+     * our {@link }
      */
     private void makeGithubSearchQuery() {
         String githubQuery = mSearchBoxEditText.getText().toString();
         URL githubSearchUrl = NetworkUtils.buildUrl(githubQuery);
         mUrlDisplayTextView.setText(githubSearchUrl.toString());
-        new GithubQueryTask().execute(githubSearchUrl);
+        GithubQueryTask(githubSearchUrl);
     }
 
     // COMPLETED (14) Create a method called showJsonDataView to show the data and hide the error
@@ -71,40 +82,83 @@ public class MainActivity extends AppCompatActivity {
         mErrorMessageDisplay.setVisibility(View.VISIBLE);
     }
 
-    public class GithubQueryTask extends AsyncTask<URL, Void, String> {
+    public void GithubQueryTask(final URL githubSearchResult) {
 
-        // COMPLETED (26) Override onPreExecute to set the loading indicator to visible
-        @Override
-        protected void onPreExecute() {
-            super.onPreExecute();
-            mLoadingIndicator.setVisibility(View.VISIBLE);
-        }
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        final Handler handler = new Handler(Looper.getMainLooper());
 
-        @Override
-        protected String doInBackground(URL... params) {
-            URL searchUrl = params[0];
-            String githubSearchResults = null;
-            try {
-                githubSearchResults = NetworkUtils.getResponseFromHttpUrl(searchUrl);
-            } catch (IOException e) {
-                e.printStackTrace();
+        handler.post(new Runnable() {
+            @Override
+            public void run() {
+                mLoadingIndicator.setVisibility(View.VISIBLE);
             }
-            return githubSearchResults;
-        }
+        });
 
-        @Override
-        protected void onPostExecute(String githubSearchResults) {
-            // COMPLETED (27) As soon as the loading is complete, hide the loading indicator
-            mLoadingIndicator.setVisibility(View.INVISIBLE);
-            if (githubSearchResults != null && !githubSearchResults.equals("")) {
-                // COMPLETED (17) Call showJsonDataView if we have valid, non-null results
-                showJsonDataView();
-                mSearchResultsTextView.setText(githubSearchResults);
-            } else {
-                // COMPLETED (16) Call showErrorMessage if the result is null in onPostExecute
-                showErrorMessage();
+        executorService.execute(new Runnable() {
+            @Override
+            public void run() {
+                URL searchUrl = githubSearchResult;
+                String githubSearchResults = null;
+                try {
+                    githubSearchResults = NetworkUtils.getResponseFromHttpUrl(searchUrl);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                mGithubSearchResult = githubSearchResults;
+
+                handler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        //COMPLETED(27) As soon as the loading is complete, hide the loading indicator
+                        mLoadingIndicator.setVisibility(View.INVISIBLE);
+                        if (mGithubSearchResult != null && !mGithubSearchResult.equals("")) {
+                            // COMPLETED (17) Call showJsonDataView if we have valid, non-null results
+                            showJsonDataView();
+                            mSearchResultsTextView.setText(mGithubSearchResult);
+                        } else {
+                            // COMPLETED (16) Call showErrorMessage if the result is null in onPostExecute
+                            showErrorMessage();
+                        }
+                    }
+                });
             }
-        }
+
+
+        });
+
+
+//        // COMPLETED (26) Override onPreExecute to set the loading indicator to visible
+//        @Override
+//        protected void onPreExecute() {
+//            super.onPreExecute();
+//            mLoadingIndicator.setVisibility(View.VISIBLE);
+//        }
+//
+//        @Override
+//        protected String doInBackground(URL... params) {
+//            URL searchUrl = params[0];
+//            String githubSearchResults = null;
+//            try {
+//                githubSearchResults = NetworkUtils.getResponseFromHttpUrl(searchUrl);
+//            } catch (IOException e) {
+//                e.printStackTrace();
+//            }
+//            return githubSearchResults;
+//        }
+//
+//        @Override
+//        protected void onPostExecute(String githubSearchResults) {
+//            // COMPLETED (27) As soon as the loading is complete, hide the loading indicator
+//            mLoadingIndicator.setVisibility(View.INVISIBLE);
+//            if (githubSearchResults != null && !githubSearchResults.equals("")) {
+//                // COMPLETED (17) Call showJsonDataView if we have valid, non-null results
+//                showJsonDataView();
+//                mSearchResultsTextView.setText(githubSearchResults);
+//            } else {
+//                // COMPLETED (16) Call showErrorMessage if the result is null in onPostExecute
+//                showErrorMessage();
+//            }
+//        }
     }
 
     @Override
